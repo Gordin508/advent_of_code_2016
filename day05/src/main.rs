@@ -44,7 +44,7 @@ fn crack_pass_pt2(puzzle_input: &[u8]) -> [u8; 8] {
     result
 }
 
-fn part1(lines: &Vec<&str>) -> Option<i64> {
+fn part1(lines: &Vec<&str>) -> Option<String> {
     let puzzle_input = lines[0].as_bytes();
     let pass_u8 = crack_pass(&puzzle_input);
     let tochr = |x: u8| -> char {
@@ -56,11 +56,10 @@ fn part1(lines: &Vec<&str>) -> Option<i64> {
         }
     };
     let pass: String = pass_u8.into_iter().map(tochr).collect();
-    println!("Password: {}", pass);
-    None
+    Some(pass)
 }
 
-fn part2(lines: &Vec<&str>) -> Option<i64> {
+fn part2(lines: &Vec<&str>) -> Option<String> {
     let puzzle_input = lines[0].as_bytes();
     let pass_u8 = crack_pass_pt2(&puzzle_input);
     let tochr = |x: u8| -> char {
@@ -72,8 +71,7 @@ fn part2(lines: &Vec<&str>) -> Option<i64> {
         }
     };
     let pass: String = pass_u8.into_iter().map(tochr).collect();
-    println!("Password: {}", pass);
-    None
+    Some(pass)
 }
 
 fn main() {
