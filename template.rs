@@ -1,12 +1,12 @@
 #![allow(unused)]
 #![allow(dead_code)]
 
-fn part1(lines: &Vec<&str>) -> Option<i64> {
+fn part1(lines: &Vec<&str>) -> Option<usize> {
     //TODO: implement me
     None
 }
 
-fn part2(lines: &Vec<&str>) -> Option<i64> {
+fn part2(lines: &Vec<&str>) -> Option<usize> {
     //TODO: implement me
     None
 }
