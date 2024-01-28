@@ -32,8 +32,8 @@ fn extended_euclidian(a: i64, b: i64) -> EucledianResult {
     while r != 0 {
         let quotient = old_r / r;
         (old_r, r) = (r, old_r - quotient * r); // r = old_r % r
-        (old_s, s) = (s, old_s - quotient * s); // s = old_s % s
-        (old_t, t) = (t, old_t - quotient * t); // t = old_t % t
+        (old_s, s) = (s, old_s - quotient * s);
+        (old_t, t) = (t, old_t - quotient * t);
     }
     return EucledianResult { s,
                              t,
