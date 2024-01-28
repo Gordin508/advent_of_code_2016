@@ -70,30 +70,28 @@ fn fallthrough(discs: &[Disc]) -> Option<usize> {
     None
 }
 
-fn fallthrough_chinese_remainder_theorem(discs: &[Disc]) -> Option<usize> {
-    // TODO: fix this nightmare of casts and iterators
-    let N = discs.iter().map(|d| d.len).product::<u32>();
-    let N_i = discs.iter().map(|d| N / d.len).collect::<Vec<u32>>();
-    let inverses: Vec<_> = N_i.iter().zip(discs.iter())
-                              .map(|(n, d)| inverse_mod((*n).into(), d.len.into()))
-                              .collect();
-    let startvals = discs.iter().enumerate().map(|(t, d)| d.len as i32 - d.startpos as i32 - t as i32 - 1).collect::<Vec<_>>();
-    let mut result = 0;
-    for i in (0..N_i.len()) {
-        result += N_i[i] as i64 * inverses[i] as i64 * startvals[i] as i64;
-    }
+#[allow(non_snake_case)]
+fn fallthrough_chinese_remainder_theorem(discs: &[Disc]) -> Option<u64> {
+    let N: i64 = discs.iter().map(|d| d.len).product::<u32>().into();
+    let mut result: i64 = discs.iter().enumerate()
+                      .map(|(t, disc)| -> i64 {
+                           let n_disk: i64 = N / disc.len as i64;
+                           let inverse = inverse_mod(n_disk, disc.len.into());
+                           n_disk * inverse * (disc.len as i64 - disc.startpos as i64 - t as i64 - 1)
+                       })
+                      .sum();
     if result < 0 {
-        result = (result % N as i64) + N as i64;
+        result = (result % N) + N;
     }
-    Some(result as usize % N as usize)
+    Some((result % N) as u64)
 }
 
-fn part1(lines: &Vec<&str>) -> Option<usize> {
+fn part1(lines: &Vec<&str>) -> Option<u64> {
     let discs = lines.iter().map(|l| Disc::from(*l)).collect::<Vec<_>>();
     fallthrough_chinese_remainder_theorem(&discs)
 }
 
-fn part2(lines: &Vec<&str>) -> Option<usize> {
+fn part2(lines: &Vec<&str>) -> Option<u64> {
     let mut discs = lines.iter().map(|l| Disc::from(*l)).collect::<Vec<_>>();
     discs.push(Disc{len: 11, startpos: 0});
     fallthrough_chinese_remainder_theorem(&discs)
