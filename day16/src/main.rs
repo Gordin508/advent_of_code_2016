@@ -31,11 +31,30 @@ fn checksum(state: &[u8], limit_len: Option<usize>) -> Vec<u8> {
     checksum
 }
 
+fn expanded_len(initial_len: usize, time: u32) -> usize {
+    2usize.pow(time) * initial_len + 2usize.pow(time) - 2 + 1
+}
+
+fn checksum_faster(state: &[u8], limit_len: Option<usize>) -> Vec<u8> {
+    let limit_len = match limit_len {
+        Some(limit) => limit,
+        None => state.len()
+    };
+    let chunk_size = limit_len & !(limit_len - 1);
+    assert!(limit_len % 2 == 0);
+    assert!(limit_len % chunk_size == 0);
+    let mut checksum = Vec::new();
+    for chunk in (0..limit_len / chunk_size).map(|i| &state[i * chunk_size..(i + 1) * chunk_size]) {
+        checksum.push(if chunk.iter().filter(|c| **c != 0).count() % 2 == 1 {0} else {1});
+    }
+    checksum
+}
+
 fn part1(lines: &Vec<&str>) -> Option<String> {
     assert_eq!(1, lines.len());
     let initial_state = lines[0].chars().map(|c| if c == '0' {0} else {1}).collect::<Vec<_>>();
     let target_len = 272;
-    let checksum = checksum(&dragon_curve(&initial_state, target_len), Some(target_len));
+    let checksum = checksum_faster(&dragon_curve(&initial_state, target_len), Some(target_len));
     let result = checksum.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
     Some(result.join(""))
 }
@@ -44,7 +63,7 @@ fn part2(lines: &Vec<&str>) -> Option<String> {
     assert_eq!(1, lines.len());
     let initial_state = lines[0].chars().map(|c| if c == '0' {0} else {1}).collect::<Vec<_>>();
     let target_len = 35651584;
-    let checksum = checksum(&dragon_curve(&initial_state, target_len), Some(target_len));
+    let checksum = checksum_faster(&dragon_curve(&initial_state, target_len), Some(target_len));
     let result = checksum.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
     Some(result.join(""))
 }
