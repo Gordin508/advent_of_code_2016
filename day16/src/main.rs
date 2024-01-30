@@ -50,11 +50,56 @@ fn checksum_faster(state: &[u8], limit_len: Option<usize>) -> Vec<u8> {
     checksum
 }
 
+fn checksum_low_ram(initial_state: &[u8], limit_len: usize) -> Vec<u8> {
+    // do not construct dragon curve explicitly
+    let chunk_size = limit_len & !(limit_len - 1);
+    assert!(limit_len % 2 == 0);
+    assert!(limit_len % chunk_size == 0);
+    let mut separators = Vec::with_capacity(limit_len / initial_state.len());
+    let is_len = initial_state.len();
+    let mut extended_state = initial_state.to_vec();
+    extended_state.push(u8::MAX);
+    let mut inverted_state = initial_state.iter().rev().map(|v| v ^ 1).collect::<Vec<_>>();
+    extended_state.append(&mut inverted_state);
+    let mut get_itm = |position: usize, rnd: usize| -> u8 {
+        if position != is_len && position != is_len * 2 + 1 {
+            return extended_state[position];
+        } else {
+            let index = rnd * 2 + position / (is_len + 1);
+            if index >= separators.len() {
+                separators.push(0);
+                for i in (0..separators.len() - 1).rev() {
+                    separators.push(if separators[i] == 1 {0} else {1});
+                }
+            }
+            return separators[index]
+        }
+    };
+    let mut result = Vec::with_capacity(limit_len / chunk_size);
+    let pattern_len = is_len * 2 + 2;
+    let mut index = 0;
+    let mut round = 0;
+    for i in (0..(limit_len / chunk_size)) {
+        let mut parity = 1;
+        for _ in (0..chunk_size) {
+            parity = parity ^ get_itm(index, round);
+            index += 1;
+            if index == pattern_len {
+                index = 0;
+                round += 1;
+            }
+        }
+        result.push(parity);
+    }
+    result
+}
+
 fn part1(lines: &Vec<&str>) -> Option<String> {
     assert_eq!(1, lines.len());
     let initial_state = lines[0].chars().map(|c| if c == '0' {0} else {1}).collect::<Vec<_>>();
     let target_len = 272;
-    let checksum = checksum_faster(&dragon_curve(&initial_state, target_len), Some(target_len));
+    //let checksum = checksum_faster(&dragon_curve(&initial_state, target_len), Some(target_len));
+    let checksum = checksum_low_ram(&initial_state, target_len);
     let result = checksum.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
     Some(result.join(""))
 }
@@ -63,7 +108,8 @@ fn part2(lines: &Vec<&str>) -> Option<String> {
     assert_eq!(1, lines.len());
     let initial_state = lines[0].chars().map(|c| if c == '0' {0} else {1}).collect::<Vec<_>>();
     let target_len = 35651584;
-    let checksum = checksum_faster(&dragon_curve(&initial_state, target_len), Some(target_len));
+    // let checksum = checksum_faster(&dragon_curve(&initial_state, target_len), Some(target_len));
+    let checksum = checksum_low_ram(&initial_state, target_len);
     let result = checksum.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
     Some(result.join(""))
 }
