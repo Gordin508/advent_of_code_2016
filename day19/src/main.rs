@@ -1,7 +1,15 @@
 #![allow(unused)]
 #![allow(dead_code)]
 
+fn last_elf_standing_josephus(num_elves: usize) -> usize {
+    // Josephus problem
+    // https://www.youtube.com/watch?v=uCsD3ZGzMgE
+    let msb = num_elves.ilog2();
+    ((num_elves ^ (1 << msb)) << 1) + 1
+}
+
 fn last_elf_standing(num_elves: usize) -> usize {
+    // my original logarithmic solution
     let mut num_elves = num_elves;
     let mut winning_elf = 0;
     let mut num_rounds = 1;
@@ -75,7 +83,7 @@ fn last_elf_standing_pt2(num_elves: usize) -> usize {
 fn part1(lines: &Vec<&str>) -> Option<usize> {
     assert_eq!(1, lines.len());
     let puzzle_input = lines[0].parse::<usize>().unwrap();
-    Some(last_elf_standing(puzzle_input))
+    Some(last_elf_standing_josephus(puzzle_input))
 }
 
 fn part2(lines: &Vec<&str>) -> Option<usize> {
@@ -119,6 +127,11 @@ mod tests {
     #[test]
     fn test_last_elf() {
         assert_eq!(3, last_elf_standing(5));
+    }
+
+    #[test]
+    fn test_last_elf_numberphile() {
+        assert_eq!(3, last_elf_standing_josephus(5));
     }
 
     #[test]
