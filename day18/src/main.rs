@@ -28,6 +28,86 @@ fn get_safe_tiles(input: &[u8], num_rows: usize) -> usize {
     result
 }
 
+struct HistoryItem {
+    records: Vec<u64>,
+    index: usize
+}
+
+impl HistoryItem {
+    fn new(value: &[u8], index: usize) -> Self {
+        let mut records = Vec::new();
+        let mut index = 0;
+        let mut last: u64 = 0;
+        for v in value.iter() {
+            if index >= 64 {
+                records.push(last);
+                last = 0;
+                index = 0;
+            }
+            last |= (*v as u64) << index;
+            index += 1;
+        }
+        records.push(last);
+        HistoryItem {records, index}
+    }
+}
+
+impl PartialEq for HistoryItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.records.eq(&other.records)
+    }
+}
+
+impl std::hash::Hash for HistoryItem {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.records.hash(state)
+    }
+}
+
+impl Eq for HistoryItem{}
+
+fn get_safe_tiles_buffered(input: &[u8], num_rows: usize) -> usize {
+    // buffering didn't do anything for my input since there was no cycle
+    use std::collections::HashSet;
+    let mut row = input.to_vec();
+    let rowlen = row.len();
+    let mut result = row.iter().filter(|tile| **tile == 0).count();
+    let mut buffer = Vec::new();
+    let mut seen = HashSet::new();
+    buffer.push(result);
+    seen.insert(HistoryItem::new(row.as_slice(), 0));
+    for j in (1..num_rows) {
+        let mut newrow = vec![0; rowlen];
+        for (i, tile) in row.iter().enumerate().filter(|(i, t)| **t != 0) {
+            newrow[i] += 1;
+            if i > 0 {
+                newrow[i - 1] += 4;
+            }
+            if i < rowlen - 1 {
+                newrow[i + 1] += 4;
+            }
+        }
+        newrow.iter_mut().for_each(|v| *v = if 1 < *v && *v < 8 {1} else {0});
+        let histitem = HistoryItem::new(newrow.as_slice(), buffer.len());
+        if let Some(circleitem) = seen.get(&histitem) {
+            // circle detected
+            let cyclestart = circleitem.index;
+            let cyclelen = buffer.len() - circleitem.index;
+            println!("Cycle: {}", cyclelen);
+            for x in (0..num_rows - j) {
+                result += buffer[cyclestart + (x % cyclelen)]
+            }
+            return result;
+        }
+        seen.insert(histitem);
+        let safe = newrow.iter().filter(|v| **v == 0).count();
+        buffer.push(safe);
+        result += safe;
+        row = newrow;
+    }
+    result
+}
+
 fn part1(lines: &Vec<&str>) -> Option<usize> {
     let puzzle_input = lines[0].chars().map(|c| if c == '.' {0} else {1}).collect::<Vec<_>>();
     Some(get_safe_tiles(&puzzle_input, 40))
