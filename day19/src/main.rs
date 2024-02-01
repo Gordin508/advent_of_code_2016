@@ -57,16 +57,8 @@ fn last_elf_standing_pt2(num_elves: usize) -> usize {
     if num_elves < 6 {
         return last_elf_standing_pt2_brute_force(num_elves);
     }
-    let mut root = 1;
-    let mut three_pow = 3;
-    loop {
-        let newpow = three_pow * 3;
-        if newpow > num_elves {
-            break;
-        }
-        three_pow = newpow;
-        root += 2;
-    }
+    let mut log3 = num_elves.ilog(3);
+    let mut three_pow = 3usize.pow(log3);
     // you can find this pattern by bruteforcing the first 100 solutions
     // and manually inspecting them
     if num_elves == three_pow {
