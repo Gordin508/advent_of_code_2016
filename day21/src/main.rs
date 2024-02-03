@@ -1,6 +1,8 @@
 #![allow(unused)]
 #![allow(dead_code)]
 
+use std::mem::swap;
+
 use regex::Regex;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -18,7 +20,7 @@ impl Instruction {
     fn parse_input(lines: &[&str]) -> Vec<Instruction> {
         let swap_re = Regex::new(r"swap position (\d+) with position (\d+)").unwrap();
         let swap_letter_re = Regex::new(r"swap letter (\w+) with letter (\w+)").unwrap();
-        let rotate_re = Regex::new(r"rotate (left|right) (\d+) steps").unwrap();
+        let rotate_re = Regex::new(r"rotate (left|right) (\d+) steps?").unwrap();
         let rotate_letter_re = Regex::new(r"rotate based on position of letter (\w+)").unwrap();
         let reverse_re = Regex::new(r"reverse positions (\d+) through (\d+)").unwrap();
         let move_re = Regex::new(r"move position (\d+) to position (\d+)").unwrap();
@@ -57,20 +59,128 @@ impl Instruction {
                 instructions.push(Instruction::Move(caps[1].parse().unwrap(), caps[2].parse().unwrap()));
                 continue;
             }
+            eprintln!("Could not parse {}", line);
+            panic!("Parsing failed");
         }
-
+ 
         return instructions;
+    }
+
+    fn revert(&self, state: &[char]) -> Vec<char> {
+        match *self {
+            Instruction::SwapPosition(_, _)
+                | Instruction::SwapLetter(_, _)
+                | Instruction::Reverse(_, _) => {
+                self.apply(state)
+            },
+            Instruction::RotateLeft(r) => {
+                Instruction::RotateRight(r).apply(state)
+            },
+            Instruction::RotateRight(r) => {
+                Instruction::RotateLeft(r).apply(state)
+            },
+            Instruction::RotateLetter(a) => {
+                let mut result = state.to_vec();
+                let (charpos, _) = state.iter().enumerate().filter(|(i, c)| **c == a).next().unwrap();
+                // too tired for a closed form sulution right now
+                // therefore we brute force the 'old' position of a
+                for i in (0..state.len()) {
+                    let r = 1 + i + if i >= 4 {1} else {0};
+                    if (i + r) % state.len() == charpos {
+                        // found rotation amount
+                        return Instruction::RotateLeft(r).apply(state);
+                    }
+                }
+                result
+            },
+            Instruction::Move(x, y) => {
+                Instruction::Move(y, x).apply(state)
+            }
+        }
+    }
+
+    fn rotate_right(state: &[char], r: usize) -> Vec<char> {
+        let r = r % state.len();
+        assert!(r <= state.len());
+        if r == state.len() {
+            return state.to_vec();
+        }
+        let rlen = state.len();
+        let mut result = Vec::new();
+        result.resize(rlen, '\0');
+
+        result[0..r].copy_from_slice(&state[rlen - r..rlen]);
+        result[r..rlen].copy_from_slice(&state[0..rlen - r]);
+        result
+    }
+
+    fn apply(&self, state: &[char]) -> Vec<char> {
+        let mut result = state.to_vec();
+        match *self {
+            Instruction::SwapPosition(x, y) => {
+                (result[x], result[y]) = (result[y], result[x]);
+            },
+            Instruction::SwapLetter(a, b) => {
+                for l in result.iter_mut() {
+                    if *l == a {
+                        *l = b;
+                    } else if *l == b {
+                        *l = a;
+                    }
+                }
+            },
+            Instruction::RotateRight(r) => {
+                return Self::rotate_right(state, r);
+            },
+            Instruction::RotateLeft(r) => {
+                return Self::rotate_right(state, state.len() - r);
+            },
+            Instruction::RotateLetter(a) => {
+                let (charpos, _) = state.iter().enumerate().filter(|(i, c)| **c == a).next().unwrap();
+                assert!(charpos < state.len());
+                let r = 1 + charpos + if charpos >= 4 {1} else {0};
+                return Self::rotate_right(state, r);
+            },
+            Instruction::Reverse(x, y) => {
+                let (x, y) = if x < y {(x, y)} else {(y, x)};
+                for i in (x..=((x + y)/2)) {
+                    result.swap(i, y - i + x);
+                }
+            },
+            Instruction::Move(x, y) => {
+                result[y] = state[x];
+                if x < y {
+                    result[x..y].copy_from_slice(&state[x + 1..=y]);
+                } else if x > y {
+                    result[y + 1..x + 1].copy_from_slice(&state[y..x]);
+                }
+            }
+        }
+        return result
     }
 }
 
-fn part1(lines: &Vec<&str>) -> Option<usize> {
+fn part1(lines: &Vec<&str>) -> Option<String> {
     let instructions = Instruction::parse_input(lines);
-    None
+    assert_eq!(lines.len(), instructions.len());
+    let startvalue = "abcdefgh";
+    // let startvalue = "abcde";
+    let mut result = startvalue.chars().collect::<Vec<_>>();
+    for instr in instructions {
+        result = instr.apply(&result);
+    }
+    Some(result.into_iter().collect::<String>())
 }
 
-fn part2(lines: &Vec<&str>) -> Option<usize> {
-    //TODO: implement me
-    None
+fn part2(lines: &Vec<&str>) -> Option<String> {
+    let instructions = Instruction::parse_input(lines);
+    assert_eq!(lines.len(), instructions.len());
+    let startvalue = "fbgdceah";
+    let mut result = startvalue.chars().collect::<Vec<_>>();
+    for instr in instructions.iter().rev() {
+        result = instr.revert(&result);
+    }
+    Some(result.into_iter().collect::<String>())
 }
 
 fn main() {
@@ -110,5 +220,20 @@ mod tests {
         let line = "move position 5 to position 12";
         let instrunctions = Instruction::parse_input(&[line]);
         assert_eq!(Instruction::Move(5, 12), instrunctions[0]);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_part1() {
+        let testinput = "swap position 4 with position 0
+swap letter d with letter b
+reverse positions 0 through 4
+rotate left 1 step
+move position 1 to position 4
+move position 3 to position 0
+rotate based on position of letter b
+rotate based on position of letter d";
+        // the test won't work unless you change the startvalue inside part1 to "abcde"
+        assert_eq!(part1(&testinput.lines().collect::<Vec<_>>()), Some(String::from("decab")));
     }
 }
