@@ -29,10 +29,20 @@ fn parse_input(lines: &[&str]) -> Vec<Node> {
     nodes
 }
 
+fn nodes_viable(node1: &Node, node2: &Node) -> bool {
+    return node1.used > 0 && node1.used <= node2.avail;
+}
+
 fn part1(lines: &Vec<&str>) -> Option<usize> {
     let nodes = parse_input(lines);
     assert_eq!(lines.len() - 2, nodes.len());
-    None
+    let mut viable_pairs = 0;
+    for node1 in nodes.iter() {
+        for node2 in nodes.iter() {
+            viable_pairs = if nodes_viable(node1, node2) {viable_pairs + 1} else {viable_pairs};
+        }
+    }
+    Some(viable_pairs)
 }
 
 fn part2(lines: &Vec<&str>) -> Option<usize> {
