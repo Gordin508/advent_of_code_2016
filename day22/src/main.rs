@@ -109,12 +109,7 @@ struct QueueEntry {
 }
 
 impl QueueEntry {
-    fn from_grid(grid: &NodeGrid, datapos: (usize, usize)) -> Self {
-        let emptypos = grid.nodes.iter().filter(|n| n.used == 0).map(|n| (n.x, n.y)).next().unwrap();
-        QueueEntry { emptypos, datapos }
-    }
-
-    fn new(grid: NodeGrid, emptypos: (usize, usize), datapos: (usize, usize)) -> Self {
+    fn new(emptypos: (usize, usize), datapos: (usize, usize)) -> Self {
         QueueEntry { emptypos, datapos }
     }
 }
@@ -127,10 +122,6 @@ fn part2(lines: &Vec<&str>) -> Option<usize> {
     let grid = NodeGrid::new(&nodes, width as usize, height as usize);
     assert_eq!(grid[(1, 4)].x, 1); // sanity check
     assert_eq!(grid[(1, 4)].y, 4);
-    let mut step = 0;
-    let mut queue = vec![QueueEntry::from_grid(&grid, (width - 1, 0))];
-    let mut seen = HashSet::new();
-    seen.insert(queue[0].clone());
 
     let neighbors = |grid: &NodeGrid, (x, y)| -> Vec<Node> {
         let mut result = Vec::new();
@@ -148,29 +139,40 @@ fn part2(lines: &Vec<&str>) -> Option<usize> {
         }
         result
     };
-    while queue.len() != 0 {
-        let mut newqueue = Vec::new();
-        for entry in queue {
-            if entry.datapos == (0, 0) {
-                return Some(step)
-            }
-            // for all neighbors in emptypos
-            let emptypos = entry.emptypos;
-            for n in neighbors(&grid, emptypos) {
-                if n.used <= grid[emptypos].size {
-                    let datapos = if (n.x, n.y) == entry.datapos {emptypos} else {entry.datapos};
-                    let newentry = QueueEntry::new(grid.clone(), (n.x, n.y), datapos);
-                    if seen.insert(newentry.clone()) {
-                        newqueue.push(newentry);
+    // shortest path from initial emptypos to data pos
+    let shortest_path = |from: (usize, usize), to: (usize, usize)| -> usize {
+        let mut step = 0;
+        let mut queue = vec![QueueEntry::new(from, to)];
+        let mut seen = HashSet::new();
+        seen.insert(queue[0].clone());
+        while queue.len() != 0 {
+            let mut newqueue = Vec::new();
+            for entry in queue {
+                if entry.datapos == (0, 0) {
+                    return step
+                }
+                // for all neighbors in emptypos
+                let emptypos = entry.emptypos;
+                for n in neighbors(&grid, emptypos) {
+                    if n.used <= grid[emptypos].size {
+                        let datapos = if (n.x, n.y) == entry.datapos {emptypos} else {entry.datapos};
+                        let newentry = QueueEntry::new((n.x, n.y), datapos);
+                        if seen.insert(newentry.clone()) {
+                            newqueue.push(newentry);
+                        }
                     }
                 }
             }
+            queue = newqueue;
+            step += 1;
         }
-        queue = newqueue;
-        step += 1;
-    }
+        return usize::MAX;
+    };
+    let emptypos = grid.nodes.iter().filter(|n| n.used == 0).map(|n| (n.x, n.y)).next().unwrap();
+    let path_to_data = shortest_path(emptypos, (grid.width - 1, 0));
+    let path_to_home = shortest_path((grid.width - 1, 0), (0, 0));
 
-    None
+    Some(path_to_data + path_to_home)
 }
 
 fn main() {
