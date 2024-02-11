@@ -1,6 +1,8 @@
 #![allow(unused)]
 #![allow(dead_code)]
 
+use itertools::Itertools;
+
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 struct Position {
@@ -100,7 +102,6 @@ impl From<&Vec<&str>> for Graph {
         }
 
         let mut graph = Self { nodes: Vec::new(), edges: Vec::new(), importantnodes: Vec::new()};
-        graph.nodes.push(Node::new(zeropos.x, zeropos.y));
         Self::dfs(&grid, &mut seen, zeropos, zeropos, 0, 0, &mut graph);
         graph.importantnodes.sort();
         graph
@@ -109,7 +110,7 @@ impl From<&Vec<&str>> for Graph {
 
 impl Graph {
     fn dfs(grid: &[Vec<u8>], seen: &mut HashSet<Position>, current: Position, from: Position, cdfdist: usize, lastnode: usize, graph: &mut Graph) {
-        if !seen.insert(current) {
+        if !seen.insert(current) && cdfdist > 0 {
             // backwards or cross edge
             let tarnode = graph.nodes.iter().enumerate().filter(|(i, node)| node.position == current).next();
             if let Some((index, _)) = tarnode {
@@ -127,7 +128,9 @@ impl Graph {
             // special tile, emit node either way
             let newnode = graph.nodes.len();
             graph.nodes.push(Node::new(current.x, current.y));
-            graph.edges.push(Edge::new(lastnode, newnode, cdfdist));
+            if cdfdist > 0 {
+                graph.edges.push(Edge::new(lastnode, newnode, cdfdist));
+            }
             graph.importantnodes.push((tile - 0x30, newnode));
             for neighbor in neighbors {
                 Self::dfs(grid, seen, neighbor, current, 1, newnode, graph);
@@ -144,17 +147,69 @@ impl Graph {
         // more than 1 neighbor, add new node
         let newnode = graph.nodes.len();
         graph.nodes.push(Node::new(current.x, current.y));
-        graph.edges.push(Edge::new(lastnode, newnode, cdfdist));
+        if cdfdist > 0 {
+            graph.edges.push(Edge::new(lastnode, newnode, cdfdist));
+        }
         for neighbor in neighbors {
             Self::dfs(grid, seen, neighbor, current, 1, newnode, graph);
         }
     }
 }
 
+fn shortest_distance(graph: &Graph, start_node_index: usize, dest_node_index: usize) -> usize {
+    let mut seen = HashSet::new();
+    let mut queue = Vec::new();
+    queue.push((start_node_index, 0));
+    while queue.len() > 0 {
+        let mut newqueue = Vec::new();
+        for (node, dist) in queue.into_iter() {
+            if node == dest_node_index {
+                return dist;
+            }
+            if !seen.insert(node) {
+                continue;
+            }
+            let edges = graph.edges.iter().filter(|e| e.from == node || e.to == node)
+                                          .collect::<Vec<_>>();
+            for e in edges {
+                newqueue.push((if e.to != node {e.to} else {e.from}, dist + e.distance));
+            }
+        }
+        queue = newqueue;
+    }
+    usize::MAX
+}
+
+fn travelings_salesman(graph: &Graph) -> usize {
+    // calculate all pairwise distances
+    let mut num_nodes = graph.importantnodes.len();
+    let mut pairwise_dist = vec![vec![usize::MAX; num_nodes]; num_nodes];
+    for srcnode in (0..num_nodes) {
+        for destnode in (srcnode..num_nodes) {
+            let distance = shortest_distance(graph, graph.importantnodes[srcnode].1, graph.importantnodes[destnode].1);
+            pairwise_dist[srcnode][destnode] = distance;
+            pairwise_dist[destnode][srcnode] = distance;
+        }
+    }
+    for (i, line) in pairwise_dist.iter().enumerate() {
+        println!("{}: {:?}", i, line);
+    }
+    let mut best = usize::MAX;
+    use std::cmp::min;
+    for mut perm in (1..num_nodes).permutations(num_nodes - 1).unique() {
+        let result: usize = pairwise_dist[0][perm[0]] + perm.iter().zip(perm.iter().skip(1)).map(|(from, to)| pairwise_dist[*from][*to]).sum::<usize>();
+        if result < best {
+            best = result;
+            println!("Best: {} with order {:?}", best, perm);
+        }
+    }
+    best
+}
+
 fn part1(lines: &Vec<&str>) -> Option<usize> {
     let graph = Graph::from(lines);
-    // println!("{}", graph);
-    None
+    println!("{}", graph);
+    Some(travelings_salesman(&graph))
 }
 
 fn part2(lines: &Vec<&str>) -> Option<usize> {
@@ -193,15 +248,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    static TESTINPUT: &str = "CHANGEME";
+    static TESTINPUT: &str = "###########
+#0.1.....2#
+#.#######.#
+#4.......3#
+###########";
 
     #[test]
     fn test_part1() {
         let lines: Vec<&str> = TESTINPUT.lines().collect();
-        assert_eq!(Some(1337), part1(&lines));
+        let graph = Graph::from(&lines);
+        // println!("{}", graph);
+        assert_eq!(Some(14), part1(&lines));
     }
 
     #[test]
+    #[ignore]
     fn test_part2() {
         let lines: Vec<&str> = TESTINPUT.lines().collect();
         assert_eq!(Some(13337), part2(&lines));
