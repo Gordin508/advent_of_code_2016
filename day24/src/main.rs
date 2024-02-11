@@ -157,30 +157,28 @@ impl Graph {
 }
 
 fn shortest_distance(graph: &Graph, start_node_index: usize, dest_node_index: usize) -> usize {
+    use std::collections::BinaryHeap;
+    use std::cmp::Reverse;
     let mut seen = HashSet::new();
-    let mut queue = Vec::new();
-    queue.push((start_node_index, 0));
-    while queue.len() > 0 {
-        let mut newqueue = Vec::new();
-        for (node, dist) in queue.into_iter() {
-            if node == dest_node_index {
-                return dist;
-            }
-            if !seen.insert(node) {
-                continue;
-            }
-            let edges = graph.edges.iter().filter(|e| e.from == node || e.to == node)
-                                          .collect::<Vec<_>>();
-            for e in edges {
-                newqueue.push((if e.to != node {e.to} else {e.from}, dist + e.distance));
-            }
+    let mut queue = BinaryHeap::new();
+    queue.push((Reverse(0), start_node_index));
+    while let Some((dist, node)) = queue.pop(){
+        if node == dest_node_index {
+            return dist.0;
         }
-        queue = newqueue;
+        if !seen.insert(node) {
+            continue;
+        }
+        let edges = graph.edges.iter().filter(|e| e.from == node || e.to == node)
+                                      .collect::<Vec<_>>();
+        for e in edges {
+            queue.push((Reverse(dist.0 + e.distance), if e.to != node {e.to} else {e.from}));
+        }
     }
     usize::MAX
 }
 
-fn travelings_salesman(graph: &Graph) -> usize {
+fn travelings_salesman(graph: &Graph, cycle: bool) -> usize {
     // calculate all pairwise distances
     let mut num_nodes = graph.importantnodes.len();
     let mut pairwise_dist = vec![vec![usize::MAX; num_nodes]; num_nodes];
@@ -191,16 +189,16 @@ fn travelings_salesman(graph: &Graph) -> usize {
             pairwise_dist[destnode][srcnode] = distance;
         }
     }
-    for (i, line) in pairwise_dist.iter().enumerate() {
-        println!("{}: {:?}", i, line);
-    }
     let mut best = usize::MAX;
     use std::cmp::min;
     for mut perm in (1..num_nodes).permutations(num_nodes - 1).unique() {
-        let result: usize = pairwise_dist[0][perm[0]] + perm.iter().zip(perm.iter().skip(1)).map(|(from, to)| pairwise_dist[*from][*to]).sum::<usize>();
+        let mut result: usize = pairwise_dist[0][perm[0]]
+                            + perm.iter().zip(perm.iter().skip(1)).map(|(from, to)| pairwise_dist[*from][*to]).sum::<usize>();
+        if cycle {
+            result += pairwise_dist[perm[perm.len() - 1]][0];
+        }
         if result < best {
             best = result;
-            println!("Best: {} with order {:?}", best, perm);
         }
     }
     best
@@ -208,13 +206,12 @@ fn travelings_salesman(graph: &Graph) -> usize {
 
 fn part1(lines: &Vec<&str>) -> Option<usize> {
     let graph = Graph::from(lines);
-    println!("{}", graph);
-    Some(travelings_salesman(&graph))
+    Some(travelings_salesman(&graph, false))
 }
 
 fn part2(lines: &Vec<&str>) -> Option<usize> {
-    //TODO: implement me
-    None
+    let graph = Graph::from(lines);
+    Some(travelings_salesman(&graph, true))
 }
 
 fn main() {
@@ -258,7 +255,6 @@ mod tests {
     fn test_part1() {
         let lines: Vec<&str> = TESTINPUT.lines().collect();
         let graph = Graph::from(&lines);
-        // println!("{}", graph);
         assert_eq!(Some(14), part1(&lines));
     }
 
